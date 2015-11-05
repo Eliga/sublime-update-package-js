@@ -1,0 +1,7 @@
+[{
+      "caption": "Update package.js",
+      "command": "update_package_files"
+    },{
+      "caption": "Go to package.js",
+      "command": "go_to_package_file"
+}]

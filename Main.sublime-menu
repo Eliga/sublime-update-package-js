@@ -1,0 +1,12 @@
+[{
+  "id": "tools",
+  "children": [{
+    "id": "updatepackagefiles_tools",
+    "caption": "package.js",
+    "children": [{
+      "command": "update_package_files"
+    },{
+      "command": "go_to_package_file"
+    }]
+  }]
+}]
