@@ -15,6 +15,8 @@ except ImportError as e:
   pass
 
 PLUGIN_FOLDER = os.path.dirname(os.path.realpath(__file__))
+SETTINGS_FILE = "UpdatePackageFiles.sublime-settings"
+OUTPUT_VALID = "> update_package_js"
 
 class UpdatePackageFilesCommand(sublime_plugin.TextCommand):
   def run(self, edit):
@@ -30,33 +32,23 @@ class UpdatePackageFilesCommand(sublime_plugin.TextCommand):
     # Get the current text in the buffer and save it in a temporary file.
     # This allows for scratch buffers and dirty files to be linted as well.
     entire_buffer_region = sublime.Region(0, self.view.size())
-    # text_selection_region = self.view.sel()[0]
-    # is_formatting_selection_only = \
-    #   PluginUtils2.get_pref("format_selection_only") \
-    #   and not text_selection_region.empty()
 
-    # if is_formatting_selection_only:
-    #   temp_file_path, buffer_text = self.save_buffer_to_temp_file(text_selection_region)
-    # else:
     temp_file_path, buffer_text = self.save_buffer_to_temp_file(entire_buffer_region)
 
     output = self.run_script_on_file(temp_file_path)
     os.remove(temp_file_path)
 
     # Dump any diagnostics and get the output after the identification marker.
-    # if PluginUtils2.get_pref("print_diagnostics"):
-    #   print(self.get_output_diagnostics(output))
-    # output = self.get_output_data(output)
+    # if PluginUtils.get_pref("print_diagnostics"):
+    print(self.get_output_diagnostics(output))
+    output = self.get_output_data(output)
 
     # If the prettified text length is nil, the current syntax isn't supported.
-    if len(output) < 1:
+    if (output is None) or (len(output) < 1):
       return
 
     # Replace the text only if it's different.
     if output != buffer_text:
-      # if is_formatting_selection_only:
-      #   self.view.replace(edit, text_selection_region, output)
-      # else:
       self.view.replace(edit, entire_buffer_region, output)
 
     self.refold_folded_regions(folded_regions_content, output)
@@ -79,41 +71,52 @@ class UpdatePackageFilesCommand(sublime_plugin.TextCommand):
     return temp_file_path, buffer_text
 
   def run_script_on_file(self, temp_file_path):
+    file_path = self.view.file_name()
     try:
-      node_path = PluginUtils2.get_node_path()
+      node_path = PluginUtils.get_node_path()
       script_path = PLUGIN_FOLDER + "/scripts/update_package_js.js"
-      file_path = self.view.file_name()
-      cmd = [node_path, script_path, temp_file_path, file_path or "?"]
-      output = PluginUtils2.get_output(cmd).decode("utf-8")
-      return output
+      cmd = [node_path, script_path, temp_file_path, file_path or "?", "--plugin"]
+      output = PluginUtils.get_output(cmd).decode("utf-8")
 
       # Make sure the correct/expected output is retrieved.
-      # if output.find(OUTPUT_VALID) != -1:
-      #   return output
+      if output.find(OUTPUT_VALID) != -1:
+        return output
 
-      # msg = "Command " + '" "'.join(cmd) + " created invalid output."
-      # print(output)
-      # raise Exception(msg)
+      msg = "Command " + '" "'.join(cmd) + " created invalid output."
+      print(output)
+      raise Exception(msg)
 
-    except:
-      # Something bad happened.
-      print("Unexpected error({0}): {1}".format(sys.exc_info()[0], sys.exc_info()[1]))
-
-      # Usually, it's just node.js not being found. Try to alleviate the issue.
-      msg = "Node.js was not found in the default path. Please specify the location."
-      if not sublime.ok_cancel_dialog(msg):
-        msg = "You won't be able to use this plugin without specifying the path to node.js."
-        sublime.error_message(msg)
+    except subprocess.CalledProcessError as e:
+      output = e.output.decode("utf-8")
+      if output.find(OUTPUT_VALID) != -1:
+        msg = "Error updating " + file_path + " (exit code {})".format(e.returncode)
+        print(msg)
+        print(output)
+        sublime.status_message(msg)
+        return None;
       else:
-        PluginUtils2.open_sublime_settings(self.view.window())
+        # Something bad happened.
+        print("Unexpected error({0}): {1}".format(sys.exc_info()[0], sys.exc_info()[1]))
 
-  # def get_output_diagnostics(self, output):
-  #   index = output.find(OUTPUT_VALID)
-  #   return output[:index].decode("utf-8")
+        # Usually, it's just node.js not being found. Try to alleviate the issue.
+        msg = "Node.js was not found in the default path. Please specify the location."
+        if not sublime.ok_cancel_dialog(msg):
+          msg = "You won't be able to use this plugin without specifying the path to node.js."
+          sublime.error_message(msg)
+        else:
+          PluginUtils.open_sublime_settings(self.view.window())
 
-  # def get_output_data(self, output):
-  #   index = output.find(OUTPUT_VALID)
-  #   return output[index + len(OUTPUT_VALID) + 1:].decode("utf-8")
+  def get_output_diagnostics(self, output):
+    if output is None:
+      return ""
+    index = output.find(OUTPUT_VALID)
+    return output[:index]
+
+  def get_output_data(self, output):
+    if output is None:
+      return ""
+    index = output.find(OUTPUT_VALID)
+    return output[index + len(OUTPUT_VALID) + 1:]
 
   def refold_folded_regions(self, folded_regions_content, entire_file_contents):
     self.view.unfold(sublime.Region(0, len(entire_file_contents)))
@@ -128,21 +131,17 @@ class UpdatePackageFilesCommand(sublime_plugin.TextCommand):
 class UpdatePackageFilesEventListeners(sublime_plugin.EventListener):
   @staticmethod
   def on_pre_save(view):
-    # if PluginUtils2.get_pref("format_on_save"):
+    # if PluginUtils.get_pref("format_on_save"):
     file_path = view.file_name()
     if file_path.endswith("package.js"):
       view.run_command("update_package_files")
     else:
       print("Update Package Files ignoring " + file_path)
 
-class PluginUtils2:
+class PluginUtils:
   @staticmethod
   def get_pref(key):
     return sublime.load_settings(SETTINGS_FILE).get(key)
-
-  @staticmethod
-  def open_config_rc(window):
-    window.open_file(PLUGIN_FOLDER + "/" + RC_FILE)
 
   @staticmethod
   def open_sublime_settings(window):
@@ -171,7 +170,10 @@ class PluginUtils2:
 
   @staticmethod
   def get_node_path():
-    return "/usr/local/bin/node"
+    platform = sublime.platform()
+    node = PluginUtils.get_pref("node_path").get(platform)
+    print("Using node.js path on '" + platform + "': " + node)
+    return node
 
   @staticmethod
   def get_output(cmd):

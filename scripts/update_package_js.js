@@ -5,16 +5,22 @@ var path = require("path");
 
 var debug = false;
 
-var input, inputPath, outputPath;
+var input, inputPath, outputPath, fromPlugin;
 
-if (process.argv.length === 4) {
+if (process.argv.length >= 4) {
     input = process.argv[2];
     inputPath = process.argv[3];
     outputPath = "-";
+    fromPlugin = (process.argv.length === 5) && (process.argv[4] === "--plugin");
 } else if (process.argv.length === 3) {
     input = process.argv[2];
     inputPath = input;
     outputPath = input + ".new";
+}
+
+
+if (fromPlugin) {
+    process.stdout.write("> update_package_js\n");
 }
 
 var offset = 0;
