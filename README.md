@@ -1,9 +1,9 @@
 # sublime-update-package-js
 
-Sublime Text 3 plugin to update package.js based on files in directory
+Sublime Text 3 plugin to update package.js based on files in directory of a Meteor project.
 
 
-Your project has to be structured like a meteor application:
+Your project has to be structured like a Meteor application:
  - lib contains the client & server code
  - client contains the client code
  - server contains the server code
@@ -60,7 +60,7 @@ Sample package.js
 
 ## Install dependencies
     cd sublime-update-package-js/scripts
-    npm install esprima
+    npm install
 
 
 ## Install in Sublime Text
