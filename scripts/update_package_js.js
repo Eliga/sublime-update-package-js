@@ -30,13 +30,23 @@ var clientFiles = [];
 var serverFiles = [];
 var testsFiles = [];
 
+var libAssets = [];
+var clientAssets = [];
+var serverAssets = [];
+var testsAssets = [];
+
 var rootDir = path.dirname(inputPath);
 //var testsDir = path.join(rootDir, "tests");
 
 function ignoreFile(file, filePath) {
-    var regex = new RegExp("\\.(png|jpg|jpeg|svg)$", "i");
     return file.indexOf(".") === 0 ||
-        (filePath === "package.js" || filePath === "packages.json" ||  filePath === "README.md" || (filePath.search(regex) >= 1));
+        (filePath === "package.js" || filePath === "packages.json" ||  filePath === "README.md" || filePath.charAt(filePath.length) === "~");
+}
+
+var regexFile = new RegExp("^.+\\.(html|js|css)$", "i");
+
+function isFile(file, filePath) {
+    return regexFile.test(filePath);
 }
 
 function tree(root, accs, acc) {
@@ -68,7 +78,12 @@ function tree(root, accs, acc) {
                     tree(p, accs, accRec);
 
                 } else if (acc) {
-                    acc.push(relP);
+                    if (isFile(file, relP)) {
+                        acc.files.push(relP);
+                    } else {
+                        // don't be picky with assets
+                        acc.assets.push(relP);
+                    }
                 } else {
                     throw new Error("file not in lib, client or server: '" + relP + "'");
                 }
@@ -79,10 +94,22 @@ function tree(root, accs, acc) {
 }
 
 tree(rootDir, {
-    lib: libFiles,
-    client: clientFiles,
-    server: serverFiles,
-    tests: testsFiles
+    lib: {
+        files: libFiles,
+        assets: libAssets
+    },
+    client: {
+        files: clientFiles,
+        assets: clientAssets
+    },
+    server: {
+        files: serverFiles,
+        assets: serverAssets
+    },
+    tests: {
+        files: testsFiles,
+        assets: testsAssets
+    }
 }, undefined);
 
 
@@ -154,15 +181,22 @@ function sortAccordingToMeteor(arr) {
 sortAccordingToMeteor(libFiles);
 sortAccordingToMeteor(clientFiles);
 sortAccordingToMeteor(serverFiles);
+// no need to sort assets
 
 // tree(testsDir, testsFiles);
 
-if (debug) console.log("lib", libFiles);
-if (debug) console.log("client", clientFiles);
-if (debug) console.log("server", serverFiles);
-if (debug) console.log("tests", testsFiles);
+if (debug) {
+    console.log("lib", libFiles);
+    console.log("libAssets", libAssets);
+    console.log("client", clientFiles);
+    console.log("clientAssets", clientAssets);
+    console.log("server", serverFiles);
+    console.log("serverAssets", serverAssets);
+    console.log("tests", testsFiles);
+    console.log("testsAssets", testsAssets);
+    console.log(parsed.body);
+}
 
-if (debug) console.log(parsed.body);
 
 
 function insertLibs(libs, dest, beginOffset, indent, endOffset) {
@@ -187,9 +221,9 @@ function insertLibs(libs, dest, beginOffset, indent, endOffset) {
     offset = endOffset;
 }
 
-function debugPrint(msg, x, content) {
-    console.log(msg, x, content.substring(x.range[0], x.range[1]));
-}
+// function debugPrint(msg, x, content) {
+//     console.log(msg, x, content.substring(x.range[0], x.range[1]));
+// }
 
 function isCall(functionName, x, content) {
     // debugPrint(x, content);
@@ -205,7 +239,9 @@ function isCall(functionName, x, content) {
 
 function updateLibsInBody(body) {
     body.forEach(function(stmt) {
-        if (isCall("api.addFiles", stmt, content)) {
+        var isAddFiles = isCall("api.addFiles", stmt, content);
+        var isAddAssets = !isAddFiles && isCall("api.addAssets", stmt, content);
+        if (isAddFiles || isAddAssets) {
             var firstArg = stmt.expression.arguments[0];
             var firstFile;
             var lastArg = stmt.expression.arguments[stmt.expression.arguments.length - 1];
@@ -229,16 +265,16 @@ function updateLibsInBody(body) {
             var dest;
             if (firstFile.type === "Literal") {
                 if (firstFile.value.indexOf("lib/") === 0) {
-                    files = libFiles;
+                    files = isAddFiles ? libFiles : libAssets;
                     dest = "";
                 } else if (firstFile.value.indexOf("client/") === 0) {
-                    files = clientFiles;
+                    files = isAddFiles ? clientFiles : clientAssets;
                     dest = "client";
                 } else if (firstFile.value.indexOf("server/") === 0) {
-                    files = serverFiles;
+                    files = isAddFiles ? serverFiles : serverAssets;
                     dest = "server";
                 } else if (firstFile.value.indexOf("tests/") === 0) {
-                    files = testsFiles;
+                    files = isAddFiles ? testsFiles : testsAssets;
                     dest = "server";
                 } else {
 
@@ -251,10 +287,10 @@ function updateLibsInBody(body) {
                             dest = arch.value;
                             switch (arch.value) {
                                 case "server":
-                                    files = serverFiles;
+                                    files = isAddFiles ? serverFiles : serverAssets;
                                     break;
                                 case "client":
-                                    files = clientFiles;
+                                    files = isAddFiles ? clientFiles : clientAssets;
                                     break;
                                 default:
                                     throw new Error("unexpected arch: " + arch.value);
@@ -263,7 +299,7 @@ function updateLibsInBody(body) {
                     } else {
                         // assuming libs
                         dest = "";
-                        files = libFiles;
+                        files = isAddFiles ? libFiles : libAssets;
                     }
                 }
                 insertLibs(files, dest, firstArg.range[0], spc, lastArg.range[1]);
