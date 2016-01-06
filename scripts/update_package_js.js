@@ -208,17 +208,23 @@ if (debug) {
 function insertLibs(libs, dest, beginOffset, indent, endOffset) {
     output += content.substring(offset, beginOffset);
 
-    if (libs.length !== 1) {
-        output += "[\n" + indent;
+    if (libs.length === 0) {
+        output += "[]";
+    } else {
+
+        if (libs.length > 1) {
+            output += "[\n" + indent;
+        }
+
+        output += libs.map(function(x) {
+            return "\"" + x + "\"";
+        }).join(",\n" + indent);
+
+        if (libs.length > 1) {
+            output += "]";
+        }
     }
 
-    output += libs.map(function(x) {
-        return "\"" + x + "\"";
-    }).join(",\n" + indent);
-
-    if (libs.length !== 1) {
-        output += "]";
-    }
     if (dest) {
         output += ", [\"" + dest + "\"]";
     } else {
@@ -258,28 +264,29 @@ function updateLibsInBody(body) {
             } else {
                 firstFile = firstArg.elements[0];
                 if (firstArg.elements.length === 0) {
-                    return;
-                }
-
-                spc = content.substring(stmt.expression.arguments[0].range[0], firstFile.range[0]);
-                spc = spc.substring(spc.indexOf("\n") + 1);
-                if (!spc.match(/[ \t]+/)) {
-                    spc = ""; // couldn't guess indent
+                    firstFile = null;
+                    spc = "";
+                } else {
+                    spc = content.substring(stmt.expression.arguments[0].range[0], firstFile.range[0]);
+                    spc = spc.substring(spc.indexOf("\n") + 1);
+                    if (!spc.match(/[ \t]+/)) {
+                        spc = ""; // couldn't guess indent
+                    }
                 }
             }
             var files;
             var dest;
-            if (firstFile.type === "Literal") {
-                if (firstFile.value.indexOf("lib/") === 0) {
+            if (!firstFile || firstFile.type === "Literal") {
+                if (firstFile && firstFile.value.indexOf("lib/") === 0) {
                     files = isAddFiles ? libFiles : libAssets;
                     dest = "";
-                } else if (firstFile.value.indexOf("client/") === 0) {
+                } else if (firstFile && firstFile.value.indexOf("client/") === 0) {
                     files = isAddFiles ? clientFiles : clientAssets;
                     dest = "client";
-                } else if (firstFile.value.indexOf("server/") === 0) {
+                } else if (firstFile && firstFile.value.indexOf("server/") === 0) {
                     files = isAddFiles ? serverFiles : serverAssets;
                     dest = "server";
-                } else if (firstFile.value.indexOf("tests/") === 0) {
+                } else if (firstFile && firstFile.value.indexOf("tests/") === 0) {
                     files = isAddFiles ? testsFiles : testsAssets;
                     dest = "server";
                 } else {
