@@ -49,7 +49,7 @@ function ignoreFile(file, filePath) {
         (filePath === "package.js" || filePath === "packages.json" ||  filePath === "README.md" || filePath.charAt(filePath.length) === "~");
 }
 
-var regexFile = new RegExp("^.+\\.(html|js|css|json|i18n)$", "i");
+var regexFile = new RegExp("^.+\\.(html|js|css|json|i18n|scss|sass)$", "i");
 
 function isFile(file, filePath) {
     return regexFile.test(filePath);
@@ -117,7 +117,6 @@ tree(rootDir, {
         assets: testsAssets
     }
 }, undefined);
-
 
 /*
     HTML template files are always loaded before everything else
