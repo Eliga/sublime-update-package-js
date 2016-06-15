@@ -37,6 +37,11 @@ Sample package.js
 	    // will find all your client files
 	    api.addFiles([], ["client"]);
 
+	    // will find all your server assets
+		api.addAssets([], ["server"]);
+
+	    // will find all your client assets
+		api.addAssets([], ["client"]);
 	}
 
 

@@ -46,13 +46,17 @@ var rootDir = path.dirname(inputPath);
 
 function ignoreFile(file, filePath) {
     return file.indexOf(".") === 0 ||
-        (filePath === "package.js" || filePath === "packages.json" ||  filePath === "README.md" || filePath.charAt(filePath.length) === "~");
+        filePath === "package.js" || filePath === "packages.json" ||
+        filePath === "README.md" ||
+        filePath.match(/bower.json$/) ||
+        filePath.charAt(filePath.length) === "~";
 }
 
 var regexFile = new RegExp("^.+\\.(html|js|css|json|i18n|scss|sass)$", "i");
+var regexAssets = new RegExp("(^|/)assets/");
 
 function isFile(file, filePath) {
-    return regexFile.test(filePath);
+    return !regexAssets.test(filePath) && regexFile.test(filePath);
 }
 
 function tree(root, accs, acc) {
